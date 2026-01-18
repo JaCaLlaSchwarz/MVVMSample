@@ -6,11 +6,14 @@
 //
 
 import UIKit
+import RxSwift
+import RxCocoa
 
 class UserListViewController: UIViewController {
     
     private let tableView = UITableView()
     private let viewModel = UserListViewModel()
+    private let disposeBag = DisposeBag()
     private let cellId = "UserCell"
 
     override func viewDidLoad() {
@@ -21,38 +24,26 @@ class UserListViewController: UIViewController {
     }
     
     private func setupBindings() {
-        viewModel.onDataUpdate = { [weak self] in
-            self?.tableView.reloadData()
-        }
+        viewModel.users
+            .bind(to: tableView.rx.items(cellIdentifier: cellId, cellType: UITableViewCell.self)) { (row, user, cell) in
+                var content = cell.defaultContentConfiguration()
+                content.text = user.name
+                content.secondaryText = user.email
+                cell.contentConfiguration = content
+            }
+            .disposed(by: disposeBag)
+        
+        tableView.rx.modelSelected(User.self)
+            .subscribe(onNext: { user in
+                print("Usuario seleccionado: \(user.name)")
+            })
+            .disposed(by: disposeBag)
     }
     
     private func setupUI() {
-        title = "Usuarios"
+        title = "Usuarios Rx"
         view.addSubview(tableView)
-        tableView.frame = view.bounds // O usa constraints
-        
-        // Configurar la tabla
-        tableView.dataSource = self
+        tableView.frame = view.bounds
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: cellId)
-    }
-}
-
-// MARK: - TableView DataSource
-extension UserListViewController: UITableViewDataSource {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return viewModel.numberOfUsers
-    }
-    
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: cellId, for: indexPath)
-        let user = viewModel.user(at: indexPath.row)
-        
-        // Configuramos la celda usando los datos procesados por el ViewModel
-        var content = cell.defaultContentConfiguration()
-        content.text = user.name
-        content.secondaryText = user.email
-        cell.contentConfiguration = content
-        
-        return cell
     }
 }
